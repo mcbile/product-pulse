@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  collector:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - DATABASE_URL=postgres://pulse:pulse@timescaledb:5432/pulse?sslmode=disable
+      - BATCH_SIZE=100
+      - FLUSH_INTERVAL=5s
+      - WORKERS=4
+      - ALLOWED_ORIGINS=*
+      - DEBUG=true
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    restart: unless-stopped
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=pulse
+      - POSTGRES_PASSWORD=pulse
+      - POSTGRES_DB=pulse
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pulse -d pulse"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  timescaledb_data:
