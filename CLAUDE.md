@@ -255,6 +255,55 @@ kaasino-pulse/
 
 ---
 
+## Render Deployment
+
+### Быстрый деплой
+
+```bash
+# 1. Создай проект на Render через Blueprint
+#    https://dashboard.render.com/blueprints
+#    Подключи репозиторий и выбери render.yaml
+
+# 2. После создания БД — инициализируй схему
+./scripts/init-render-db.sh $DATABASE_URL
+
+# 3. Проверь деплой
+curl https://pulse-collector.onrender.com/health
+curl https://pulse-collector.onrender.com/metrics
+```
+
+### Структура сервисов на Render
+
+| Service | Type | Plan | URL |
+|---------|------|------|-----|
+| `pulse-collector` | Web Service (Docker) | Starter $7 | `pulse-collector.onrender.com` |
+| `pulse-dashboard` | Static Site | Free | `pulse-dashboard.onrender.com` |
+| `pulse-db` | PostgreSQL 16 | Starter $7 | Internal |
+
+### Environment Variables
+
+Установи в Render Dashboard:
+
+| Variable | Value |
+|----------|-------|
+| `ALLOWED_ORIGINS` | `https://pulse-dashboard.onrender.com,https://kaasino.com` |
+| `DEBUG` | `false` (production) |
+
+### После деплоя
+
+```bash
+# Включи TimescaleDB (один раз)
+psql $DATABASE_URL -c "CREATE EXTENSION IF NOT EXISTS timescaledb;"
+
+# Применить схему
+psql $DATABASE_URL -f kaasino_pulse_schema.sql
+
+# Обновить continuous aggregates
+psql $DATABASE_URL -c "CALL refresh_continuous_aggregate('api_performance_1m', NULL, NULL);"
+```
+
+---
+
 ## Common Tasks
 
 ### Добавление нового типа метрики
@@ -332,3 +381,12 @@ kaasino-pulse/
 - [ ] Документация API (OpenAPI/Swagger)
 - [ ] CI/CD pipeline (GitHub Actions)
 - [ ] Helm chart для Kubernetes
+
+### GitHub Actions CI/CD
+- [ ] **Go CI** — unit tests, race detector, coverage upload (codecov)
+- [ ] **Go Lint** — golangci-lint для статического анализа
+- [ ] **Go Security** — gosec для поиска уязвимостей
+- [ ] **Frontend CI** — typecheck, eslint, build SDK
+- [ ] **Integration Tests** — тесты с TimescaleDB в Docker service
+- [ ] **Docker Build** — сборка и push образа в registry
+- [ ] **Schema Validation** — проверка SQL миграций на чистой БД

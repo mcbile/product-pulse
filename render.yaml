@@ -1,0 +1,82 @@
+# Render Blueprint - Kaasino Pulse
+# https://render.com/docs/blueprint-spec
+
+services:
+  # Go Collector (Web Service)
+  - type: web
+    name: pulse-collector
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    region: frankfurt  # eu-central
+    plan: starter  # $7/month, можно free для тестов
+
+    # Scaling
+    scaling:
+      minInstances: 1
+      maxInstances: 3
+      targetMemoryPercent: 80
+      targetCPUPercent: 70
+
+    # Health checks
+    healthCheckPath: /health
+
+    # Environment
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pulse-db
+          property: connectionString
+      - key: BATCH_SIZE
+        value: 100
+      - key: FLUSH_INTERVAL
+        value: 5s
+      - key: WORKERS
+        value: 4
+      - key: ALLOWED_ORIGINS
+        sync: false  # Set manually in dashboard
+      - key: DEBUG
+        value: false
+
+  # React Dashboard (Static Site)
+  - type: web
+    name: pulse-dashboard
+    runtime: static
+    buildCommand: npm install && npm run build:dashboard
+    staticPublishPath: ./dist
+    region: frankfurt
+
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: pulse-collector
+          property: host
+
+# TimescaleDB (PostgreSQL)
+databases:
+  - name: pulse-db
+    databaseName: pulse
+    user: pulse
+    region: frankfurt
+    plan: starter  # $7/month
+    postgresMajorVersion: 16
+
+    # Note: TimescaleDB extension must be enabled manually
+    # Run after deploy:
+    # CREATE EXTENSION IF NOT EXISTS timescaledb;
+    # Then apply kaasino_pulse_schema.sql
