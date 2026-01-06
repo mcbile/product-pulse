@@ -217,5 +217,4 @@ pulse-collector/
 ```
 
 ## License
-
-MIT
+© 2026 McBile AI-Engine
