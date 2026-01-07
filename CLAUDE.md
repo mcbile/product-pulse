@@ -1,8 +1,45 @@
-# CLAUDE.md — Kaasino Pulse
+# CLAUDE.md — Instructions for Claude Code for Kaasino Pulse
 
-> **UNBREAKABLE RULES** — Следуй этим инструкциям при каждом изменении кода.
+> **UNBREAKABLE RULES** — Follow these instructions for every code change.
 
----
+—
+
+## Impact Analysis (MANDATORY)
+
+**BEFORE any code change**, you must:
+
+1. **Describe current state** — how code works now
+2. **Describe proposed changes** — what exactly will change
+3. **Explain impact on final code:**
+   - Which files/functions affected
+   - How behavior changes
+   - Performance impact (if applicable)
+   - Potential risks
+4. **Get confirmation** from user before implementing
+
+```
+⚠️ RULE: Never make changes without explaining their impact
+   on the final code. User must understand WHAT changes
+   and HOW it affects the system.
+```
+
+### Change Proposal Format
+
+```markdown
+### Current code:
+[code fragment]
+
+### Proposed code:
+[code fragment]
+
+### Impact:
+- Files: [list of affected files]
+- Functions: [list of affected functions]
+- Performance: [description]
+- Risks: [description]
+```
+
+—
 
 ## Language
 
@@ -76,17 +113,45 @@ docker-compose up -d         # Запуск с БД
 | `WORKERS` | `4` | Parallel batch processors |
 | `ALLOWED_ORIGINS` | `*` | CORS origins |
 | `DEBUG` | `false` | Enable debug logging |
+| `RATE_LIMIT_ENABLED` | `true` | Enable rate limiting |
+| `RATE_LIMIT_RPS` | `100` | Requests per second per IP |
+| `RATE_LIMIT_BURST` | `200` | Burst size for rate limiter |
+| `MAX_BODY_SIZE` | `1048576` | Max request body size (1MB) |
 
 ---
 
 ## API Endpoints
 
+### Core Endpoints
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/collect` | POST | Приём событий от SDK |
+| `/collect` | POST | Приём событий от Frontend SDK |
 | `/health` | GET | Liveness probe |
 | `/ready` | GET | Readiness probe (проверка БД) |
 | `/metrics` | GET | Статистика коллектора |
+
+### Go Client Endpoints
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/collect/api` | POST | API метрики от Go сервисов |
+| `/collect/psp` | POST | PSP транзакции |
+| `/collect/game` | POST | Game provider метрики |
+| `/collect/ws` | POST | WebSocket метрики |
+
+### Dashboard API
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/metrics/overview` | GET | Сводка всех метрик |
+| `/api/metrics/api` | GET | API performance |
+| `/api/metrics/api/timeseries` | GET | API latency time series |
+| `/api/metrics/psp` | GET | PSP health |
+| `/api/metrics/psp/timeseries` | GET | PSP success rate time series |
+| `/api/metrics/vitals` | GET | Web Vitals |
+| `/api/metrics/vitals/timeseries` | GET | Web Vitals time series |
+| `/api/metrics/games` | GET | Game provider health |
+| `/api/metrics/games/timeseries` | GET | Game success rate time series |
+| `/api/alerts` | GET | Список алертов |
+| `/api/alerts/{time}/acknowledge` | POST | Подтвердить алерт |
 
 ---
 
@@ -120,21 +185,29 @@ docker-compose up -d         # Запуск с БД
 ### Go Collector Structure
 
 ```
+cmd/
+└── collector/
+    └── main.go              # Entry point
+
 internal/
 ├── collector/
-│   └── batch.go         # Batch processing, workers
+│   └── batch.go             # Batch processing, workers
 ├── config/
-│   └── config.go        # Environment config
+│   └── config.go            # Environment config
 ├── handler/
-│   └── handler.go       # HTTP handlers
+│   ├── handler.go           # Collect + health handlers
+│   └── dashboard.go         # Dashboard API handlers
+├── middleware/
+│   ├── ratelimit.go         # Per-IP rate limiting
+│   └── bodysize.go          # Request body size limit
 ├── model/
-│   └── event.go         # Event types
+│   └── event.go             # Event types
 └── storage/
-    └── postgres.go      # PostgreSQL COPY protocol
+    └── postgres.go          # PostgreSQL COPY + queries
 
 pkg/
 └── pulse/
-    └── client.go        # Go client library
+    └── client.go            # Go client library
 ```
 
 ### Dashboard Pages
@@ -216,30 +289,37 @@ handler := client.HTTPMiddleware("wallet")(mux)
 
 ```
 kaasino-pulse/
-├── main.go                  # Go collector entry point
-├── config.go                # Configuration
-├── handler.go               # HTTP handlers
-├── batch.go                 # Batch processing
-├── postgres.go              # Database layer
-├── event.go                 # Event models
-├── client.go                # Go client library
+├── cmd/
+│   └── collector/
+│       └── main.go              # Go collector entry point
+├── internal/
+│   ├── collector/batch.go       # Batch processing
+│   ├── config/config.go         # Configuration
+│   ├── handler/
+│   │   ├── handler.go           # HTTP handlers
+│   │   └── dashboard.go         # Dashboard API
+│   ├── middleware/
+│   │   ├── ratelimit.go         # Rate limiting
+│   │   └── bodysize.go          # Body size limit
+│   ├── model/event.go           # Event models
+│   └── storage/postgres.go      # Database layer
+├── pkg/
+│   └── pulse/client.go          # Go client library
 │
-├── index.ts                 # TypeScript SDK entry
-├── client.ts                # SDK client
+├── index.ts                     # TypeScript SDK entry
+├── client.ts                    # SDK client
 │
-├── App.tsx                  # Dashboard root
-├── index.tsx                # React entry
-├── react.tsx                # Shared components
-├── *Page.tsx                # Dashboard pages
-├── Header.tsx, Sidebar.tsx  # Layout components
-├── TimeRangeContext.tsx     # Time range state
+├── App.tsx                      # Dashboard root
+├── index.tsx                    # React entry
+├── *Page.tsx                    # Dashboard pages
+├── Header.tsx, Sidebar.tsx      # Layout components
 │
-├── kaasino_pulse_schema.sql # Database schema
-├── docker-compose.yml       # Local development
-├── Dockerfile               # Container build
-├── package.json             # Node dependencies
-├── go.mod                   # Go dependencies
-└── vite.config.ts           # Vite config
+├── kaasino_pulse_schema.sql     # Database schema
+├── docker-compose.yml           # Local development
+├── Dockerfile                   # Container build
+├── package.json                 # Node dependencies
+├── go.mod                       # Go dependencies
+└── vite.config.ts               # Vite config
 ```
 
 ---
@@ -341,6 +421,26 @@ psql $DATABASE_URL -c "CALL refresh_continuous_aggregate('api_performance_1m', N
 
 ## Changelog
 
+### v1.2.0 (2026-01-07)
+- **Dashboard Redesign** — новый дизайн на основе MAE IDP
+- Переключатель светлой/тёмной темы
+- Фильтры по брендам (Kaasino, Bet4star) и странам (NL, GB, DE, N/A)
+- Кнопка "Apply" для применения фильтров
+- Экспорт метрик в CSV и Markdown
+- Графики реагируют на применённые фильтры
+- Ребрендинг: Kaasino Pulse → Pulse View
+- ThemeContext для управления темой
+- FiltersContext для управления фильтрами
+- Обновлённые UI компоненты (ui.tsx)
+
+### v1.1.0 (2026-01-06)
+- **BREAKING**: Реструктуризация проекта — стандартная Go структура (`cmd/`, `internal/`, `pkg/`)
+- Go Client endpoints для внутренних сервисов (`/collect/api`, `/collect/psp`, `/collect/game`, `/collect/ws`)
+- Dashboard API endpoints для чтения метрик (`/api/metrics/*`, `/api/alerts`)
+- Rate limiting middleware (per-IP, настраиваемый RPS и burst)
+- Body size limit middleware (защита от OOM атак)
+- Новые конфиг-переменные: `RATE_LIMIT_*`, `MAX_BODY_SIZE`
+
 ### v1.0.0 (Initial Release)
 - Go Collector с batch processing и COPY protocol
 - Frontend SDK (@kaasino/pulse-sdk) для Web Vitals
@@ -359,12 +459,13 @@ psql $DATABASE_URL -c "CALL refresh_continuous_aggregate('api_performance_1m', N
 - [ ] **User sessions tracking** — связь метрик с конкретными сессиями игроков
 - [ ] **Anomaly detection** — автоматическое обнаружение аномалий в метриках
 - [ ] **Dashboard authentication** — авторизация для доступа к дашборду
+- [ ] **GeoIP integration** — определение страны по IP (MaxMind GeoIP2)
 
 ### Medium Priority
 - [ ] **Grafana integration** — экспорт метрик в Grafana
 - [ ] **Custom dashboards** — возможность создавать свои дашборды
 - [ ] **Retention configuration UI** — управление retention через UI
-- [ ] **Export to CSV/Excel** — экспорт данных для отчётов
+- [x] **Export to CSV/Excel** — экспорт данных для отчётов ✅ v1.2.0
 - [ ] **Mobile SDK** — React Native / Flutter SDK
 - [ ] **Sampling configuration** — настраиваемый sampling для высоконагруженных эндпоинтов
 
@@ -390,3 +491,18 @@ psql $DATABASE_URL -c "CALL refresh_continuous_aggregate('api_performance_1m', N
 - [ ] **Integration Tests** — тесты с TimescaleDB в Docker service
 - [ ] **Docker Build** — сборка и push образа в registry
 - [ ] **Schema Validation** — проверка SQL миграций на чистой БД
+
+### Completed (v1.2.0)
+- [x] Dashboard Redesign (MAE IDP дизайн)
+- [x] Light/Dark theme toggle
+- [x] Brand/Country filters
+- [x] Export to CSV/Markdown
+- [x] Ребрендинг → Pulse View
+
+### Completed (v1.1.0)
+- [x] Реструктуризация Go проекта (cmd/internal/pkg)
+- [x] Go Client endpoints (/collect/api, /psp, /game, /ws)
+- [x] Dashboard API endpoints (/api/metrics/*, /api/alerts)
+- [x] Rate limiting middleware
+- [x] Body size limit middleware
+- [x] CORS для Dashboard API

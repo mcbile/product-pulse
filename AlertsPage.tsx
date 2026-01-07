@@ -1,25 +1,25 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, CheckCircle, Clock, Bell, BellOff } from 'lucide-react'
-import { mockData, Alert } from '../api/client'
-import { Card, SectionHeader, StatusBadge } from '../components/ui'
+import { mockData, Alert } from './apiClient'
+import { Card, SectionHeader, StatusBadge } from './ui'
 
 const severityConfig = {
   critical: {
-    color: 'text-red-500',
-    bg: 'bg-red-500/10',
-    border: 'border-red-500/20',
+    color: 'text-[var(--gradient-4)]',
+    bg: 'bg-[rgba(244,57,110,0.1)]',
+    border: 'border-[rgba(244,57,110,0.2)]',
     icon: AlertTriangle,
   },
   warning: {
-    color: 'text-amber-500',
-    bg: 'bg-amber-500/10',
-    border: 'border-amber-500/20',
+    color: 'text-[#f59e0b]',
+    bg: 'bg-[rgba(245,158,11,0.1)]',
+    border: 'border-[rgba(245,158,11,0.2)]',
     icon: AlertTriangle,
   },
   info: {
-    color: 'text-blue-500',
-    bg: 'bg-blue-500/10',
-    border: 'border-blue-500/20',
+    color: 'text-[var(--gradient-7)]',
+    bg: 'bg-[rgba(104,131,218,0.1)]',
+    border: 'border-[rgba(104,131,218,0.2)]',
     icon: Bell,
   },
 }
@@ -53,7 +53,7 @@ export function AlertsPage() {
     const date = new Date(time)
     const now = new Date()
     const diff = now.getTime() - date.getTime()
-    
+
     if (diff < 60000) return 'Just now'
     if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`
     if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`
@@ -70,31 +70,31 @@ export function AlertsPage() {
           <div className={`p-2 rounded-lg ${config.bg}`}>
             <Icon className={config.color} size={20} />
           </div>
-          
+
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <span className={`text-sm font-medium ${config.color}`}>
                 {alert.alert_type.replace(/_/g, ' ').toUpperCase()}
               </span>
               {alert.acknowledged && (
-                <span className="text-xs text-gray-500 flex items-center gap-1">
+                <span className="text-xs text-theme-muted flex items-center gap-1">
                   <CheckCircle size={12} /> Acknowledged
                 </span>
               )}
             </div>
-            
-            <p className="text-sm text-gray-300 mb-2">{alert.message}</p>
-            
-            <div className="flex items-center gap-4 text-xs text-gray-500">
+
+            <p className="text-sm text-theme-secondary mb-2">{alert.message}</p>
+
+            <div className="flex items-center gap-4 text-xs text-theme-muted">
               <span className="flex items-center gap-1">
                 <Clock size={12} />
                 {formatTime(alert.time)}
               </span>
               <span>
-                Source: <code className="text-gray-400">{alert.source_table}</code>
+                Source: <code className="text-theme-secondary">{alert.source_table}</code>
               </span>
               <span>
-                Threshold: <span className="text-gray-400">{alert.threshold_value}</span>
+                Threshold: <span className="text-theme-secondary">{alert.threshold_value}</span>
                 {' → '}
                 Actual: <span className={config.color}>{alert.actual_value.toFixed(2)}</span>
               </span>
@@ -104,14 +104,14 @@ export function AlertsPage() {
           {!alert.acknowledged && !alert.resolved_at && (
             <button
               onClick={() => acknowledgeMutation.mutate(alert.time)}
-              className="px-3 py-1.5 text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg transition-colors"
+              className="btn btn-secondary text-xs"
             >
               Acknowledge
             </button>
           )}
 
           {alert.resolved_at && (
-            <span className="px-3 py-1.5 text-xs bg-emerald-500/10 text-emerald-500 rounded-lg">
+            <span className="px-3 py-1.5 text-xs bg-[rgba(34,197,94,0.1)] text-[#22c55e] rounded-lg">
               Resolved
             </span>
           )}
@@ -125,67 +125,67 @@ export function AlertsPage() {
       {/* Summary Cards */}
       <div className="grid grid-cols-4 gap-4">
         <Card className="flex items-center gap-4">
-          <div className="p-3 bg-red-500/10 rounded-lg">
-            <AlertTriangle className="text-red-500" size={24} />
+          <div className="p-3 rounded-lg" style={{ background: 'rgba(244, 57, 110, 0.1)' }}>
+            <AlertTriangle style={{ color: 'var(--gradient-4)' }} size={24} />
           </div>
           <div>
-            <div className="text-2xl font-bold text-red-500">{criticalCount}</div>
-            <div className="text-xs text-gray-500">Critical Alerts</div>
+            <div className="text-2xl font-bold" style={{ color: 'var(--gradient-4)' }}>{criticalCount}</div>
+            <div className="text-xs text-theme-muted">Critical Alerts</div>
           </div>
         </Card>
 
         <Card className="flex items-center gap-4">
-          <div className="p-3 bg-amber-500/10 rounded-lg">
-            <AlertTriangle className="text-amber-500" size={24} />
+          <div className="p-3 rounded-lg" style={{ background: 'rgba(245, 158, 11, 0.1)' }}>
+            <AlertTriangle className="text-[#f59e0b]" size={24} />
           </div>
           <div>
-            <div className="text-2xl font-bold text-amber-500">{warningCount}</div>
-            <div className="text-xs text-gray-500">Warnings</div>
+            <div className="text-2xl font-bold text-[#f59e0b]">{warningCount}</div>
+            <div className="text-xs text-theme-muted">Warnings</div>
           </div>
         </Card>
 
         <Card className="flex items-center gap-4">
-          <div className="p-3 bg-blue-500/10 rounded-lg">
-            <Bell className="text-blue-500" size={24} />
+          <div className="p-3 rounded-lg" style={{ background: 'rgba(104, 131, 218, 0.1)' }}>
+            <Bell style={{ color: 'var(--gradient-7)' }} size={24} />
           </div>
           <div>
-            <div className="text-2xl font-bold text-blue-500">{infoCount}</div>
-            <div className="text-xs text-gray-500">Info</div>
+            <div className="text-2xl font-bold" style={{ color: 'var(--gradient-7)' }}>{infoCount}</div>
+            <div className="text-xs text-theme-muted">Info</div>
           </div>
         </Card>
 
         <Card className="flex items-center gap-4">
-          <div className="p-3 bg-emerald-500/10 rounded-lg">
-            <CheckCircle className="text-emerald-500" size={24} />
+          <div className="p-3 rounded-lg" style={{ background: 'rgba(34, 197, 94, 0.1)' }}>
+            <CheckCircle className="text-[#22c55e]" size={24} />
           </div>
           <div>
-            <div className="text-2xl font-bold text-emerald-500">{resolvedAlerts.length}</div>
-            <div className="text-xs text-gray-500">Resolved Today</div>
+            <div className="text-2xl font-bold text-[#22c55e]">{resolvedAlerts.length}</div>
+            <div className="text-xs text-theme-muted">Resolved Today</div>
           </div>
         </Card>
       </div>
 
       {/* Active Alerts */}
       <Card padding="none">
-        <div className="p-5 border-b border-gray-800">
+        <div className="p-5 border-b border-theme">
           <SectionHeader
             title="Active Alerts"
             subtitle={`${activeAlerts.length} alerts requiring attention`}
             action={
-              activeAlerts.length > 0 && (
-                <button className="text-xs text-emerald-500 hover:text-emerald-400">
+              activeAlerts.length > 0 ? (
+                <button className="text-xs text-[#22c55e] hover:underline">
                   Acknowledge all
                 </button>
-              )
+              ) : undefined
             }
           />
         </div>
 
         {activeAlerts.length === 0 ? (
           <div className="p-12 text-center">
-            <BellOff className="mx-auto text-gray-600 mb-3" size={48} />
-            <p className="text-gray-500">No active alerts</p>
-            <p className="text-sm text-gray-600">All systems operating normally</p>
+            <BellOff className="mx-auto text-theme-muted mb-3" size={48} />
+            <p className="text-theme-muted">No active alerts</p>
+            <p className="text-sm text-theme-muted opacity-70">All systems operating normally</p>
           </div>
         ) : (
           <div className="p-5 space-y-3">
@@ -204,7 +204,7 @@ export function AlertsPage() {
       {/* Resolved Alerts */}
       {resolvedAlerts.length > 0 && (
         <Card padding="none">
-          <div className="p-5 border-b border-gray-800">
+          <div className="p-5 border-b border-theme">
             <SectionHeader
               title="Recently Resolved"
               subtitle="Alerts resolved in the last 24 hours"
@@ -225,7 +225,7 @@ export function AlertsPage() {
           title="Alert Rules"
           subtitle="Configured thresholds"
           action={
-            <button className="text-xs text-emerald-500 hover:text-emerald-400">
+            <button className="text-xs text-[#22c55e] hover:underline">
               Configure →
             </button>
           }
@@ -233,7 +233,7 @@ export function AlertsPage() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="text-left text-xs text-gray-500 border-b border-gray-800">
+              <tr className="text-left text-xs text-theme-muted border-b border-theme">
                 <th className="pb-3 font-medium">Rule</th>
                 <th className="pb-3 font-medium">Metric</th>
                 <th className="pb-3 font-medium">Condition</th>
@@ -250,21 +250,21 @@ export function AlertsPage() {
                 { rule: 'Error Spike', metric: 'api_error_rate', condition: '>', threshold: '1%', severity: 'critical' },
                 { rule: 'Game Launch Issues', metric: 'game_success_rate', condition: '<', threshold: '97%', severity: 'warning' },
               ].map((rule) => (
-                <tr key={rule.rule} className="border-b border-gray-800/50">
-                  <td className="py-3 text-sm text-gray-300">{rule.rule}</td>
+                <tr key={rule.rule} className="border-b border-theme">
+                  <td className="py-3 text-sm text-theme-secondary">{rule.rule}</td>
                   <td className="py-3">
-                    <code className="text-xs bg-gray-800 px-2 py-1 rounded text-gray-400">
+                    <code className="text-xs px-2 py-1 rounded text-theme-muted" style={{ background: 'var(--bg-card-alt)' }}>
                       {rule.metric}
                     </code>
                   </td>
-                  <td className="py-3 text-sm text-gray-400">{rule.condition}</td>
-                  <td className="py-3 text-sm text-gray-300">{rule.threshold}</td>
+                  <td className="py-3 text-sm text-theme-muted">{rule.condition}</td>
+                  <td className="py-3 text-sm text-theme-secondary">{rule.threshold}</td>
                   <td className="py-3">
                     <span className={`
                       px-2 py-1 text-xs rounded-full
-                      ${rule.severity === 'critical' 
-                        ? 'bg-red-500/10 text-red-500' 
-                        : 'bg-amber-500/10 text-amber-500'
+                      ${rule.severity === 'critical'
+                        ? 'bg-[rgba(244,57,110,0.1)] text-[var(--gradient-4)]'
+                        : 'bg-[rgba(245,158,11,0.1)] text-[#f59e0b]'
                       }
                     `}>
                       {rule.severity}
