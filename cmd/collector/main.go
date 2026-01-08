@@ -109,6 +109,7 @@ func main() {
 	// Authentication endpoints
 	authHandler := handler.NewAuthHandler(cfg.AllowedOrigins)
 	mux.HandleFunc("POST /api/auth/login", authHandler.HandleLogin)
+	mux.HandleFunc("POST /api/auth/google", authHandler.HandleGoogleLogin)
 	mux.HandleFunc("POST /api/auth/logout", authHandler.HandleLogout)
 	mux.HandleFunc("GET /api/auth/verify", authHandler.HandleVerify)
 	mux.HandleFunc("OPTIONS /api/auth/", authHandler.HandleCORS)

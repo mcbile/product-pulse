@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { GoogleOAuthProvider, GoogleLogin, googleLogout } from '@react-oauth/google'
-import { jwtDecode } from 'jwt-decode'
 import { Sun, Moon } from 'lucide-react'
 import { useTheme } from './ThemeContext'
 
@@ -18,7 +17,7 @@ interface User {
   name: string
   nickname?: string
   picture: string
-  role: 'admin' | 'client'
+  role: 'super_admin' | 'admin' | 'client'
 }
 
 interface AuthContextType {
@@ -246,50 +245,40 @@ export function LoginPage() {
     setError('Registration is currently disabled. Please contact admin.')
   }
 
-  const handleGoogleSuccess = (credentialResponse: { credential?: string }) => {
+  const handleGoogleSuccess = async (credentialResponse: { credential?: string }) => {
     if (credentialResponse.credential) {
-      const decoded = jwtDecode<{
-        email: string
-        name: string
-        picture: string
-      }>(credentialResponse.credential)
+      setError(null)
+      setIsSubmitting(true)
 
-      if (!isAllowedEmail(decoded.email)) {
-        setError('Access denied. Only @starcrown.partners emails are allowed.')
-        return
+      try {
+        // Send Google credential to backend for verification and session creation
+        const res = await fetch(`${API_BASE_URL}/api/auth/google`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ credential: credentialResponse.credential }),
+        })
+
+        const data = await res.json()
+
+        if (!res.ok) {
+          setError(data.error || 'Google login failed')
+          setIsSubmitting(false)
+          return
+        }
+
+        if (data.success && data.token && data.user) {
+          // Save session token and user data
+          localStorage.setItem('pulse-token', data.token)
+          localStorage.setItem('pulse-user', JSON.stringify(data.user))
+          window.location.reload()
+        } else {
+          setError('Google login failed. Please try again.')
+        }
+      } catch (err) {
+        setError('Network error. Please try again.')
+      } finally {
+        setIsSubmitting(false)
       }
-
-      const emailLower = decoded.email.toLowerCase()
-
-      // Super admin emails (synced with backend auth.go)
-      const SUPER_ADMIN_EMAILS = ['michael@starcrown.partners']
-
-      // Check managed users for role (admin users created by super_admin)
-      const managedUsers = JSON.parse(localStorage.getItem('pulse-managed-users') || '{}')
-      const managedUser = managedUsers[emailLower]
-
-      // Determine role: super_admin > managed user role > client
-      let role: 'super_admin' | 'admin' | 'client' = 'client'
-      let nickname = decoded.name
-
-      if (SUPER_ADMIN_EMAILS.includes(emailLower)) {
-        role = 'super_admin'
-        nickname = 'McBile' // Sync nickname with backend
-      } else if (managedUser) {
-        role = managedUser.role || 'client'
-        nickname = managedUser.nickname || decoded.name
-      }
-
-      const userData: User = {
-        email: decoded.email,
-        name: decoded.name,
-        nickname: nickname,
-        picture: decoded.picture,
-        role: role,
-      }
-
-      localStorage.setItem('pulse-user', JSON.stringify(userData))
-      window.location.reload()
     }
   }
 
@@ -421,7 +410,6 @@ export function LoginPage() {
             size="large"
             text="signin_with"
             shape="rectangular"
-            locale="en"
           />
         </div>
 

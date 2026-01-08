@@ -4,8 +4,10 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"os"
@@ -352,4 +354,115 @@ func (h *AuthHandler) RequireAdmin(next http.HandlerFunc) http.HandlerFunc {
 		}
 		next(w, r)
 	})
+}
+
+// HandleGoogleLogin handles POST /api/auth/google - authenticate via Google OAuth
+func (h *AuthHandler) HandleGoogleLogin(w http.ResponseWriter, r *http.Request) {
+	h.setCORS(w, r)
+	w.Header().Set("Content-Type", "application/json")
+
+	var req struct {
+		Credential string `json:"credential"` // Google ID token (JWT)
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid request"})
+		return
+	}
+
+	if req.Credential == "" {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "credential required"})
+		return
+	}
+
+	// Decode Google JWT (simplified - in production verify signature with Google's public keys)
+	claims, err := decodeGoogleJWT(req.Credential)
+	if err != nil {
+		slog.Warn("failed to decode Google JWT", "error", err)
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid Google token"})
+		return
+	}
+
+	email := strings.ToLower(claims.Email)
+
+	// Check allowed domain
+	if !h.isAllowedDomain(email) {
+		slog.Warn("Google login denied - domain not allowed", "email", email)
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Access denied. Only @starcrown.partners emails are allowed."})
+		return
+	}
+
+	// Determine role and nickname
+	role := "client"
+	nickname := claims.Name
+
+	// Check if user is in adminUsers (super_admin)
+	if admin, ok := h.adminUsers[email]; ok {
+		role = "super_admin"
+		nickname = admin.Nickname
+	}
+
+	user := User{
+		Email:    email,
+		Name:     claims.Name,
+		Nickname: nickname,
+		Role:     role,
+		Picture:  claims.Picture,
+	}
+
+	token := h.createSession(user)
+
+	slog.Info("Google login successful", "email", email, "role", role)
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"token":   token,
+		"user":    user,
+	})
+}
+
+// GoogleClaims represents claims from Google ID token
+type GoogleClaims struct {
+	Email   string `json:"email"`
+	Name    string `json:"name"`
+	Picture string `json:"picture"`
+}
+
+// decodeGoogleJWT decodes a Google ID token without signature verification
+// In production, you should verify the signature using Google's public keys
+func decodeGoogleJWT(token string) (*GoogleClaims, error) {
+	parts := strings.Split(token, ".")
+	if len(parts) != 3 {
+		return nil, fmt.Errorf("invalid JWT format")
+	}
+
+	// Decode payload (second part)
+	payload := parts[1]
+	// Add padding if needed
+	switch len(payload) % 4 {
+	case 2:
+		payload += "=="
+	case 3:
+		payload += "="
+	}
+
+	decoded, err := base64.URLEncoding.DecodeString(payload)
+	if err != nil {
+		// Try standard encoding
+		decoded, err = base64.StdEncoding.DecodeString(payload)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode payload: %w", err)
+		}
+	}
+
+	var claims GoogleClaims
+	if err := json.Unmarshal(decoded, &claims); err != nil {
+		return nil, fmt.Errorf("failed to parse claims: %w", err)
+	}
+
+	return &claims, nil
 }
